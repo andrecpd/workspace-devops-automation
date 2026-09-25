@@ -17,7 +17,7 @@ env:
   ARTIFACT_NAME: "api-${{ github.sha }}.jar"
   IMAGE_NAME: "java-api:${{ github.sha }}"
   REGISTRY_NAME: ${{ secrets.AZURE_REGISTRY_NAME }}
-  REGISTRY_IMAGE: "${{ secrets.AZURE_REGISTRY_NAME }}.azurecr.io/java-api:${{ github.sha }}"
+  REGISTRY_IMAGE: "${{ secrets.devopsautomationandre2027 }}.azurecr.io/java-api:${{ github.sha }}"
 
 jobs:
 
