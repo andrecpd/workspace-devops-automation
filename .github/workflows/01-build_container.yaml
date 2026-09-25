@@ -1,0 +1,107 @@
+name: Java API CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+
+  pull_request:
+    branches: [main]
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  ARTIFACT_NAME: "api-${{ github.sha }}.jar"
+  IMAGE_NAME: "java-api:${{ github.sha }}"
+  REGISTRY_NAME: ${{ secrets.AZURE_REGISTRY_NAME }}
+  REGISTRY_IMAGE: "${{ secrets.AZURE_REGISTRY_NAME }}.azurecr.io/java-api:${{ github.sha }}"
+
+jobs:
+
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # 1. Baixar código do GitHub
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Instalar Java
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      # 3. Compilar aplicação
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
+
+      # 4. Executar testes
+      - name: Run tests
+        run: mvn test
+
+      # 5. Criar imagem Docker
+      - name: Build Docker Image
+        run: docker build -t ${{ env.IMAGE_NAME }} .
+
+      # 6. Scan de vulnerabilidades
+      - name: Trivy Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}
+          format: table
+          exit-code: "0"
+          severity: HIGH,CRITICAL
+
+      # 7. Login no Azure
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # 8. Login no Azure Container Registry
+      - name: Docker Login to ACR
+        run: az acr login --name ${{ env.REGISTRY_NAME }}
+
+      # 9. Tag da imagem
+      - name: Tag Docker Image
+        run: |
+          docker tag \
+          ${{ env.IMAGE_NAME }} \
+          ${{ env.REGISTRY_IMAGE }}
+
+      # 10. Push para ACR
+      - name: Push to Azure Container Registry
+        run: docker push ${{ env.REGISTRY_IMAGE }}
+
+      # 11. Salvar JAR
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-api-artifact
+          path: target/*.jar
+
+
+  deploy-staging:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # 12. Baixar artefato
+      - name: Download JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: java-api-artifact
+
+      # 13. Deploy de teste
+      - name: Fake Deploy
+        run: |
+          echo "Build: ${{ env.ARTIFACT_NAME }}"
+          echo "Fake deploy to: https://staging.example.com"
