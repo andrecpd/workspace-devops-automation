@@ -126,3 +126,4 @@ echo "TERRAFORM INIT"
 echo "======================================"
 
 terraform init
+
